@@ -17,43 +17,70 @@ Here I setup a lab enviroment replicating a corporate environment with  Domain c
 
 <h2>Environments Used </h2>
 - <b>Windows 10</b>
+<br/>
 - <b>Windows Server 2019</b>
 
 <h2>Project Walkthrough</h2>
 
 <p align="center">
-Step 1: First we will want to create VM through Microsoft Azure.  Here is the VM I created and the public IP used.  Note that my VM used I made it to be as discoverable as possible which is not recommended.  This VM will act as a Honeypot and demonstrate RDP request from potential attackers.<br/>
-<img src="https://i.imgur.com/z3DhzbK.png" height="80%" width="80%" alt="Disk Sanitization Steps"/>
+Step 1: First we will download the two iso files we will be using they can be found at https://www.microsoft.com/en-us/evalcenter/download-windows-server-2019 and https://www.microsoft.com/en-us/software-download/windows10<br/>
+Step 2: We will begin with setting up Windows Server 2019 on VirtualBox.  Here are the settings that I have for mine.  Please note that we did need to add two different adapters in the network setting.  One will be for the server to access the network and the other for other clients to access the server.
+<img src="https://i.imgur.com/e7xB1yx.png" height="80%" width="80%" alt="Disk Sanitization Steps"/>
 <br />
-Step: 2 Once the VM is created we will want to turn off Windows Firewall.  Once again this is not recommended but is applicable for the purpose of this project.<br/>
+Step: 2 On boot we will run the installer and choose Windows Server 2019 Standard.  If you choose Datacenter we will only have a command line to work with and no GUI <br/>
 <br/>
-<img src="https://i.imgur.com/cXR5w19.png" height="80%" width="80%" alt="Disk Sanitization Steps"/>
+<img src="https://i.imgur.com/0Bwv0Jo.png" height="80%" width="80%" alt="Disk Sanitization Steps"/>
 <br/>
-Step: 3 Next we will want to create the powershell script to run.  The purpose of this script to run with a Geolocation API and then log all this data to a file.  This file we will use later for Log Analytics in Azure to run queries on.  Note  this script is from an open source resource.<br/>
-<img src="https://i.imgur.com/nrnoEp3.png" height="80%" width="80%" alt="Disk Sanitization Steps"/>
+Step: 3 Last thing before starting the installation we will choose custom installation and run all defaults after that.  The installation will then run load after complete.<br/>
+<img src="https://i.imgur.com/OZf361v.png" height="80%" width="80%" alt="Disk Sanitization Steps"/>
 <br />
-Step: 4 As stated before in order for this script to work we will link it with a Geolocation API.  I created an account with ipgeolocation and used free version of the API they provide.  Note that this API is open source and can consume up to 1,000 API requests per day.
-<img src="https://i.imgur.com/GtDIhQM.png" height="80%" width="80%" alt="Disk Sanitization Steps"/>
+Step: 4 After ths server is booted we will then make changes on the internal adapter.  For this step I named both adapters so there is no confusion moving forward.  Also we made changes to the IPv4 settings for the internal adapters settings. This will be used later when clients join the domain and are assigned IP address by DHCP.
+<img src="https://i.imgur.com/bQ4y5af.png" height="80%" width="80%" alt="Disk Sanitization Steps"/>
 <br />
-Step: 5 After successfully using correct API key this is how the script will run.  We will leave this script running in the background as logs are gathered and written to file.<br/>
-<img src="https://i.imgur.com/15Qn9YG.png" height="80%" width="80%" alt="Disk Sanitization Steps"/>
+Step: 5 Next we will want to name the server so we can identify it.  The reason for this is that there can be a number of servers in an organization.  Things like file server, application server, and printeSince this server is going to be our Domain Controller I will be naming it DC for simplicity.<br/>
+<img src="https://i.imgur.com/jd21fcT.png" height="80%" width="80%" alt="Disk Sanitization Steps"/>
 <br />
-Step: 6 While this script runs the logs are being saved to C:ProgramData\failed_rdp.log file.  We will eventually link this file to Log Analytics in Azure so we can extract the raw data which we will eventually use with Sentinel.<br/>
-<img src="https://i.imgur.com/Z8d6NxG.png" height="80%" width="80%" alt="Disk Sanitization Steps"/>
+Step: 6 At this point we will begin adding the necessary features so that this server can act as a Domain Controller and manage our users through Active Directory.  The first thing we will want to do is add the feature Active Directory Domain Services.<br/>
+<img src="https://i.imgur.com/oneyHqs.png" height="80%" width="80%" alt="Disk Sanitization Steps"/>
 <br />
 <br/>
-Step: 7 Here we see the raw data that is being output to the file.  Eventually, we will need to create custom fields  with Log Analytics to extract n order for Sentinel to utilize the data in a readable format.<br/>
-<img src="https://i.imgur.com/RlGiRe1.png" height="80%" width="80%" alt="Disk Sanitization Steps"/>
+Step: 7 During the configuring of this feature we will want to configure the settings for the DC including the naming convention and if we want to create a new forst, or add a domain to an existing forest.<br/>
+<img src="https://i.imgur.com/2IDtzzH.png" height="80%" width="80%" alt="Disk Sanitization Steps"/>
 <br />
-Step: 8 Here we are creating a custom log in Azure to pull the file that was created in step: 6 <br/>
-<img src="https://i.imgur.com/WIAjQHf.png" height="80%" width="80%" alt="Disk Sanitization Steps"/>
+Step: 8 Once I completed this I then rebooted the VM and as you can see by the default sign in it is now registering as a domain. <br/>
+<img src="https://i.imgur.com/wwuvZNR.png" height="80%" width="80%" alt="Disk Sanitization Steps"/>
 <br/>
-Step: 9 Next we will run Log Analytics Query with custom log and added fields so we train Log Analytics to separate fields for Sentinel.  Bascially we are training the Log Analytics to read the raw data being colletected in the log file and outputting it in a format that Sentinel can use.<br/>
-<img src="https://i.imgur.com/ed29dlI.png" height="80%" width="80%" alt="Disk Sanitization Steps"/>
+Step: 9 As a best practice for security we will want to create a separate Admin account for ourselves and any other users that require admin access.  The reason we do this step is for non-repudiation.  When changes are made on the server we will want to be able to track who did that change.  If we only have one admin account and multiple people access the server through it, how can you tell who did want in server.  This gives accountablity to all users that sign into the server.  Here I created an OU as Admins and added a new user to that OU.<br/>
+<img src="https://i.imgur.com/MAx6MsY.png" height="80%" width="80%" alt="Disk Sanitization Steps"/>
 <br />
-Next we will setup Sentinel so it uses the query we just created.  As you can see the heatmap takes all the seperate fields we have trained Log Analytics to parse from the failed RDP logs and makes a visual representation using Latitude and Longitude data.  For this project I let it run for several hours and as you can see there are different attackers from the entire globe that are trying to access this VM.  Note this is only pooling data from RDP requests, and there are probably many more attacks that are occuring.<br/>
+Step 10 In order for clients to communicate with this server I will also add the Remote Access feature.<br/>
 <br/>
-<img src="https://i.imgur.com/5kaLnlU.png" height="80%" width="80%" alt="Disk Sanitization Steps"/>
+<img src="https://i.imgur.com/G9L1KIX.png" height="80%" width="80%" alt="Disk Sanitization Steps"/>
+<br />
+ Step: 11 Next we will need to make changes to the DHCP settings.  Basically in order for clients connected to the internet we want them going through the Domain Controller.  The DHCP will then assign IPs and lease them to Clients based on the designed scope (IP range).<br/>
+<img src="https://i.imgur.com/Iu8wEcc.png" height="80%" width="80%" alt="Disk Sanitization Steps"/>
+<br />
+Step 12 In order for clients to communicate with this server I will also add the Remote Access feature.<br/>
+<br/>
+<img src="https://i.imgur.com/G9L1KIX.png" height="80%" width="80%" alt="Disk Sanitization Steps"/>
+<br />
+ Step: 13 As shown here there are currently no Address leases as there is no client connection to the server.<br/>
+<img src="https://i.imgur.com/oYA4Uxj.png" height="80%" width="80%" alt="Disk Sanitization Steps"/>
+<br />
+Step 14 Next I will add about a 1000 users through a Powershell script.  This script will run and generate all the user based on a .txt document which can be useful for a<br/>
+<br/>
+<img src="https://i.imgur.com/CMFHibI.png" height="80%" width="80%" alt="Disk Sanitization Steps"/>
+<br />
+Step: 15 After running the script we can now check Active Directory Users and Computers and see all the users that were added.<br/>
+<img src="https://i.imgur.com/MAx6MsY.png" height="80%" width="80%" alt="Disk Sanitization Steps"/>
+<br />
+Step 16 Next we will setup the Windows 10 VM.  We will do the standard setup and boot the VM.  Note when choosing which Windows I selected Windows 10 Pro as Windows 10 Home is unable to join Domains. After boot we will want to join it to the Domain we created on the server.<br/>
+<br/>
+<img src="https://i.imgur.com/am0XnsJ.png" height="80%" width="80%" alt="Disk Sanitization Steps"/>
+Step 17 Finally after the Client is joined to the domain any user we setup on Active Directory will be able to sign in and access their desktop with the correct credentials.  Note that if we take a look back at the address leases in DHCP on the DC we can see that an address has been assigned to the client that was just joined to the DC.<br/>
+<br/>
+<img src="https://i.imgur.com/XFdcYUa.png" height="80%" width="80%" alt="Disk Sanitization Steps"/>
+<br />
 <br />
 </p>
 
